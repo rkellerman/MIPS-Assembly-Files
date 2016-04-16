@@ -1,149 +1,115 @@
-# Ryan Kellerman  158000667
+# Ryan Kellerman
 # Assignment 6
 
 .data
-theString: .space 32
-str1: .asciiz "Hex string: (max 7 characters) "
-str2: .asciiz "Its binary value: "
-str3: .asciiz "Invalid hex string.\n"
-done: .asciiz "Done"
-binaryString: .space 128
+theArray: .space 100
+length:  .asciiz "Enter the length of the array:  "
+item:  .asciiz "\nEnter a float for the array: "
+mean:  .asciiz "\nThe mean of the entries is "
+sDeviation:  .asciiz "\nThe standard deviation of the entries is "
 
 .text
-printZero:
-	la $a0, 0
-	li $v0, 1
+f:
+	mul.s $f4, $f3, $f3
+	sub.s $f4, $f4, $f2 		# f4 holds x^2 - sd^2
+	jr $ra
+
+fPrime:
+	li.s $f0, 2.0
+	mul.s $f5, $f0, $f3			# f5 holds 2x
+	jr $ra
+
+
+main: 
+	li $v0, 4
+	la $a0, length
 	syscall
-jr $ra
-
-print:
-	beqz $a1, printZero 			# if the bit to be printed is 0, break to approprite segment
-	la $a0, 1
-	li $v0, 1
+	li $v0, 5
 	syscall
-jr $ra
+	move $s0, $v0 				# s0 stores the length of the array
 
-convertAlpha:
-	addi $s0, $s0, -55 				# converts hex characters A-F
-	add $t0, $t0, $s0
-	sll $t0, $t0, 4
-	addi $a3, 1
-	addi $t5, 1
-j convertloop
+	la $a1, theArray
+	li $t0, 0					# counter is set equal to 0
 
+	loop:
+		beq $t0, $s0, NEXT
+		li $v0, 4
+		la $a0, item
+		syscall
+		li $v0, 6
+		syscall
+		s.s $f0, 0($a1)
+		addi $a1, $a1, 4
+		addi $t0, $t0, 1
+		j loop
 
-convert:
-	convertloop:
-		
-		
-		lb $s0, 0($a3) 				# each byte is loaded
-		beq $s0, 10, END
-		bge $s0, 58, convertAlpha
-		addi $s0, $s0, -48
-		add $t0, $t0, $s0
-		sll $t0, $t0, 4
-		addi $a3, 1
-		addi $t5, 1
-	j convertloop
+NEXT:
 
-	check:
-		checkloop:
+	mtc1 $s0, $f0
+	cvt.s.w $f1, $f0 			# f1 holds float equivalent of size
+	la $a1, theArray
+	li $t0, 0
+	li.s $f3, 0.0
+	meanLoop:
+		beq $t0, $s0, PROCEED
+		l.s $f2, 0($a1)
+		add.s $f3, $f3, $f2
+		addi $a1, 4
+		addi $t0, 1
+	j meanLoop
 
-		lb $s0, 0($a3) 			# load each byte of the hex string
-		li $v0, 0
-		li $s4, 10
-		beq $s0, $s4, bk_check
-		slti $t1, $s0, 48		# set to 1 if character is less than 0 in ascii
-		li $s4, 57
-		slt $t2, $s4, $s0
-		
-		or $t1, $t1, $t2 		# convert the character to the ASCII value
-		li $s4, 65 				# we then use OR and AND to determine if it is between x AND y OR w AND z
-		slt $t2, $s0, $s4
-		li $s4, 70
-		slt $t3 $s4, $s0
-		or $t2, $t2, $t3
-
-		and $v0, $t1, $t2
-		addi $a3, 1
-		beq $v0, $zero, checkloop	# if done checking, it returns to the main procedure
-		jr $ra					# if valid, set $v0 to 0
-
-bk_check:
-jr $ra
-
-main:
-li $t0, 0
-
-loop:
-li $v0, 4					# load string 1 to be printed
-la $a0, str1
-syscall
-
-li $v0, 8
-li $a1, 32
-la $a0, theString 			# loads allocated memory for hex string to be inputted
-syscall
-move $a3, $a0
-
-jal check 					# call procedure to check if it is a valid hex string
-la $a3, theString 			# loads the hex string to be converted
-li $t5, 0
-beq $v0, $zero, convert 	# if v0 is set to 1 we have to retry, otherwise we continue to convert
-la $a0, str3
-li $v0, 4
-syscall
-j loop
-
-END:
-	srl $t0, $t0, 4
-	la $a3, binaryString
-	
-	li $s0, 0 					# loop counter
-	mul $s1, $t5, 4
-	li $s2, 32
-	sub $s1, $s2, $s1
-	
-	sll $t0, $t0, $s1
-
-	la $a0, str2
+PROCEED:
+	la $a0, mean
 	li $v0, 4
 	syscall
-
-	printloop:
-		bge $s0, $t5, FINISH 			# in irder to print, we load 4 registers with 
-		li $s1, 0x08 					# 1, 2, 4, and 8, shifted 24 bits
-		sll $s1, $s1, 28 				# and then anded with the sequence to be converted
-		li $s2, 0x04
-		sll $s2, $s2, 28
-		li $s3, 0x02
-		sll $s3, $s3, 28
-		li $s4, 0x01
-		sll $s4, $s4, 28
-
-		and $s1, $s1, $t0
-		and $s2, $s2, $t0
-		and $s3, $s3, $t0
-		and $s4, $s4, $t0
-
-		move $a1, $s1
-		jal print
-		move $a1, $s2
-		jal print
-		move $a1, $s3
-		jal print
-		move $a1, $s4
-		jal print
-
-		addi $a3, 1
-		addi $s0, 1
-		sll $t0, $t0, 4 				# we shift left to get the next 4 bits as many times as we need
-	j printloop
-	
-	
-	
-
-FINISH:
-
-	li $v0, 10
+	div.s $f5, $f3, $f1
+	mov.s $f12, $f5
+	li $v0, 2
 	syscall
+
+StandardDeviation: 			# f5 holds the value of the mean
+	li.s $f2, 0.0
+	li $t0, 0
+	la $a1, theArray
+	devLoop:				# the sum will be stored onto f2
+		beq $t0, $s0, divide
+		l.s $f6, 0($a1)
+		sub.s $f6, $f6, $f5
+		mul.s $f6, $f6, $f6
+		add.s $f2, $f2, $f6
+		addi $a1, 4
+		addi $t0, 1
+	j devLoop
+divide:
+	addi $t0, $s0, -1
+	mtc1 $t0, $f0
+	cvt.s.w $f0, $f0 			# f0 now holds size-1 as a float
+	div.s $f2, $f2, $f0			# f2 now holds the standard deviation squared
+	li.s $f3, 1000.0			# f3 holds the initial x0
+		iterate:
+			jal f
+			jal fPrime
+			div.s $f4, $f4, $f5 		# f4 holds f/f'
+			sub.s $f6, $f3, $f4 		# f6 holds x+1
+			sub.s $f12, $f6, $f3 		# f12 holds x+1 - x
+			abs.s $f12, $f12
+			li.s $f11, 0.000001
+			c.lt.s $f12, $f11
+			bc1t return
+			mov.s $f3, $f6
+			jal iterate
+return:
+	li $v0, 4
+	la $a0, sDeviation
+	syscall
+	li $v0, 2
+	mov.s $f12, $f6
+	syscall
+
+
+
+
+
+
+li $v0, 10
+syscall
